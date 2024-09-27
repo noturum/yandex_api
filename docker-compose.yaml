@@ -1,0 +1,7 @@
+version: '3'
+services:
+  flask:
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "80:8081"

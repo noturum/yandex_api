@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yandex Disk API TEST</title>
+<!--    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">-->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        .append {
+        color: red;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h1>Yandex Disk API TEST</h1>
+        <div>
+            <label for="public_key">Введите публичную ссылку</label>
+            <input type="text"  id="public_key" required>
+        </div>
+        <div>
+            <label for="file_type">Выберите тип файлов для отображения:</label>
+            <select id="file_type">
+                <option value="all">Все файлы</option>
+                <option value="image">Изображения</option>
+                <option value="document">Документы</option>
+                <option value="development">Разработка</option>
+            </select>
+        </div>
+        <button id="fetchFiles">Отправить</button>
+
+        <h2>Список файлов</h2>
+        <ul id="fileList">
+
+        </ul>
+
+
+        <button id="downloadFiles">Скачать выбранные файлы</button>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        function fetchFiles(publicKey, filter) {
+            $.ajax({
+                url: "/files",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ public_key: publicKey, 'filter':filter}),
+                success: function (response) {
+                    displayFiles(response);
+                },
+                error: function (error) {
+                    alert('Ошибка при получении файлов');
+                }
+            });
+        }
+
+        function displayFiles(files) {
+            $('#fileList').empty();
+            files.forEach(function (file) {
+                if (file.type === 'dir') {
+                    $('#fileList').append(`<li class="dir-item" path="${file.path}">${file.name} (Папка)
+                    <div class = 'dir-file'></div>
+                    </li>`);
+                } else {
+                    $('#fileList').append(`<li class="file-item" file="${file.file}">${file.name}<a href = "${file.file}"></a></li>`);
+                }
+            });
+        }
+
+        $(document).on('click', '.dir-item', function () {
+            const dirPath = $(this).data('path');
+            const appendFile = $(this).find('.dir-file');
+            console.log(appendFile);
+            $.ajax({
+                url: "/files",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ public_key: $('#public_key').val(), path: dirPath }),
+                success: function (response) {
+                    response.forEach(function (file) {
+                        appendFile.append(`<li class="file-item" data-path="${file.file}">---->${file.name}</li>`);
+                    });
+                },
+                error: function (error) {
+                    alert('Ошибка при получении содержимого папки');
+                }
+            });
+        });
+
+        $(document).on('click', '.file-item', function () {
+            const filePath = $(this).attr('file');
+            const fileName = $(this).text()
+            $(this).toggleClass('append');
+            let data = {
+                "file_name":fileName,
+                "file_path":filePath
+            }
+
+            if (!selectedFiles.some(item=>item.file_name == fileName )) {
+                selectedFiles.push(data);
+            } else {
+                selectedFiles.splice(selectedFiles.indexOf(data),1)
+            }
+            console.log(selectedFiles)
+        });
+
+        $('#fetchFiles').on('click', function () {
+            const publicKey = $('#public_key').val();
+            const fileType = $('#file_type').val();
+            if (publicKey) {
+                fetchFiles(publicKey,fileType);
+            } else {
+                alert('Введите публичную ссылку или ключ');
+            }
+        });
+
+
+        $('#downloadFiles').on('click', function () {
+            console.log(selectedFiles)
+            if (selectedFiles.length > 0) {
+                 $.ajax({
+                        url: "/download",
+                        method: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify({ files: selectedFiles }),
+                        success: function (response) {
+                             response.forEach(function (file) {
+                                    const link = document.createElement('a');
+                                    link.href = file;
+                                    link.download = '';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                });
+                        },
+                        error: function (error) {
+                            alert('Ошибка при скачивании файлов');
+                        }
+                 });
+            }
+            else {
+                alert('Выберите файлы для скачивания');
+            }
+        });
+    </script>
+</body>
+</html>
